@@ -95910,7 +95910,7 @@
     },
     {
       "title": "Mythic Manor",
-      "version": "v0.22",
+      "version": "0.22",
       "description": "Mythic Manor is a free adult interactive visual novel game offering a new home and a new world. Delve deep into your fantasies and experience the day-to-day life of sharing a manor with five gorgeous “mythic girls”. Spend time and build relationships with the characters you like in currently over 70 unique character events plus special hidden events! The game is developed with Ren'Py solely by me, Jikei.​",
       "tags": [
         "3DCG",
@@ -95946,10 +95946,13 @@
       ],
       "bannerUrl": "https://attachments.f95zone.to/2018/02/78050_Patreon_Banner.png",
       "f95Url": "https://f95zone.to/threads/9201/",
-      "releaseDate": "2024-11-17",
+      "releaseDate": "Unknown Release Date",
       "knownTitles": [
-        "Mythic Manor"
-      ]
+        "Mythic Manor",
+        "MythicManor-0.21-pc",
+        "Mythic Manor Lains Walkthrough Cheat Mod"
+      ],
+      "metaUpdatedAt": "2026-03-07T21:46:32.349Z"
     },
     {
       "title": "Mythic Manor Lains Walkthrough Cheat Mod",
@@ -96008,6 +96011,19 @@
       "releaseDate": "2025-04-04",
       "knownTitles": [
         "Mythos Book One"
+      ]
+    },
+    {
+      "title": "Mykock's Manor",
+      "version": "0.3",
+      "description": "In this special you take on the role of one of the school's anonymous owners. It is set after the events of Maxine's fundraiser so make sure you are up to date with the main game before playing.",
+      "tags": [],
+      "bannerUrl": "https://img.itch.zone/aW1hZ2UvMjI1MDk2MC8xMzM0MDc2NS5wbmc=/original/VjHhpG.png",
+      "f95Url": "",
+      "releaseDate": null,
+      "knownTitles": [
+        "Mykock's Manor",
+        "MykocksManor-0.3-pc"
       ]
     },
     {
