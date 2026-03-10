@@ -23,14 +23,14 @@ function loadDeletedGames() {
 
 function saveDeletedGame(game) {
   const deleted = loadDeletedGames();
-  const alreadyTracked = deleted.some(d => d.f95Url === game.f95Url);
-  if (alreadyTracked) return;
+  if (deleted.some(d => d.f95Url === game.f95Url)) return;
   deleted.push({
     title: game.title,
     f95Url: game.f95Url,
     version: game.version || null,
     releaseDate: game.releaseDate || null,
     bannerUrl: game.bannerUrl || null,
+    status: game.status || null,
     detectedDeletedAt: new Date().toISOString(),
   });
   deleted.sort((a, b) => a.title.localeCompare(b.title));
@@ -38,22 +38,25 @@ function saveDeletedGame(game) {
   console.log(`  📋 Logged to deleted-games.json`);
 }
 
+function parseStatus(prefixText) {
+  const t = (prefixText || '').toLowerCase();
+  if (t.includes('completed')) return 'completed';
+  if (t.includes('abandoned')) return 'abandoned';
+  if (t.includes('hold')) return 'on_hold';
+  return 'active';
+}
+
 async function scrapeGame(page, f95Url) {
   await page.goto(f95Url, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
   if (page.url().includes('/login')) throw new Error('NOT_LOGGED_IN');
 
-  // Detect deleted/unavailable thread
   const isDeleted = await page.evaluate(() => {
     const title = document.title.toLowerCase();
     if (title.includes('oops') || title.includes('error') || title.includes('page not found')) return true;
-    // F95Zone shows this on deleted threads
-    if (document.querySelector('.error-page, .p-body-pageContent .blockMessage')) {
-      const msg = document.body.innerText.toLowerCase();
-      if (msg.includes('requested thread') || msg.includes('no longer available') || msg.includes('not found')) return true;
-    }
-    // If h1 title element is missing, the thread doesn't exist
     if (!document.querySelector('h1.p-title-value')) return true;
+    const msg = document.body?.innerText?.toLowerCase() || '';
+    if (msg.includes('requested thread') && msg.includes('no longer available')) return true;
     return false;
   });
 
@@ -80,7 +83,11 @@ async function scrapeGame(page, f95Url) {
     const match = document.body.innerText.match(/Release\s*Date\s*[:\-]?\s*(\d{4}-\d{2}-\d{2})/i);
     if (match) releaseDate = match[1];
 
-    return { version, releaseDate };
+    // Thread prefix label: Completed / Abandoned / On Hold / (none = active)
+    const prefixLabel = document.querySelector('h1.p-title-value .label, .p-title .label')
+      ?.textContent?.trim() || '';
+
+    return { version, releaseDate, prefixLabel };
   });
 }
 
@@ -93,9 +100,13 @@ async function main() {
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  // Skip manual:// entries — they are not on F95Zone
   const toUpdate = games
-    .filter(g => g.f95Url && !isManualEntry(g.f95Url) && (!g.metaUpdatedAt || g.metaUpdatedAt < sevenDaysAgo))
+    .filter(g => {
+      if (!g.f95Url || isManualEntry(g.f95Url)) return false;
+      // Skip finalized games — they won't change
+      if (g.status === 'completed' || g.status === 'abandoned') return false;
+      return !g.metaUpdatedAt || g.metaUpdatedAt < sevenDaysAgo;
+    })
     .sort((a, b) => (a.metaUpdatedAt || '') < (b.metaUpdatedAt || '') ? -1 : 1)
     .slice(0, MAX_GAMES_PER_RUN);
 
@@ -129,13 +140,13 @@ async function main() {
       if (result === null) {
         console.log(`  ⚠️ Thread deleted or unavailable`);
         saveDeletedGame(game);
-        // Keep in DB but mark as checked so we don't re-check every run
         games[idx].metaUpdatedAt = new Date().toISOString();
         deletedCount++;
         continue;
       }
 
       let changed = false;
+
       if (result.version && result.version !== games[idx].version) {
         console.log(`  Version: ${games[idx].version} → ${result.version}`);
         games[idx].version = result.version;
@@ -144,6 +155,13 @@ async function main() {
       if (result.releaseDate && result.releaseDate !== games[idx].releaseDate) {
         console.log(`  Release date: ${games[idx].releaseDate} → ${result.releaseDate}`);
         games[idx].releaseDate = result.releaseDate;
+        changed = true;
+      }
+
+      const newStatus = parseStatus(result.prefixLabel);
+      if (newStatus !== (games[idx].status || 'active')) {
+        console.log(`  Status: ${games[idx].status || 'active'} → ${newStatus}`);
+        games[idx].status = newStatus;
         changed = true;
       }
 
@@ -167,7 +185,7 @@ async function main() {
 
   const output = Array.isArray(db) ? games : { ...db, games };
   fs.writeFileSync(DB_PATH, JSON.stringify(output, null, 2));
-  console.log(`\n✅ Done. Updated ${updatedCount} games, ${deletedCount} deleted, checked ${toUpdate.length} total.`);
+  console.log(`\n✅ Done. Updated ${updatedCount} games, ${deletedCount} deleted threads, checked ${toUpdate.length} total.`);
 }
 
 main().catch(e => {
