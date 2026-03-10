@@ -18,7 +18,9 @@ jobs:
       - name: Install puppeteer
         run: npm install puppeteer
       - name: Write cookies
-        run: echo '${{ secrets.F95_COOKIES }}' > cookies.json
+        env:
+          F95_COOKIES: ${{ secrets.F95_COOKIES }}
+        run: printf '%s' "$F95_COOKIES" > cookies.json
       - name: Run scraper
         run: node update-db.js --offset 0 --limit 1500
       - name: Upload patch
@@ -41,7 +43,9 @@ jobs:
       - name: Install puppeteer
         run: npm install puppeteer
       - name: Write cookies
-        run: echo '${{ secrets.F95_COOKIES }}' > cookies.json
+        env:
+          F95_COOKIES: ${{ secrets.F95_COOKIES }}
+        run: printf '%s' "$F95_COOKIES" > cookies.json
       - name: Run scraper
         run: node update-db.js --offset 1500 --limit 1500
       - name: Upload patch
@@ -64,7 +68,9 @@ jobs:
       - name: Install puppeteer
         run: npm install puppeteer
       - name: Write cookies
-        run: echo '${{ secrets.F95_COOKIES }}' > cookies.json
+        env:
+          F95_COOKIES: ${{ secrets.F95_COOKIES }}
+        run: printf '%s' "$F95_COOKIES" > cookies.json
       - name: Run scraper
         run: node update-db.js --offset 3000 --limit 1500
       - name: Upload patch
@@ -87,7 +93,9 @@ jobs:
       - name: Install puppeteer
         run: npm install puppeteer
       - name: Write cookies
-        run: echo '${{ secrets.F95_COOKIES }}' > cookies.json
+        env:
+          F95_COOKIES: ${{ secrets.F95_COOKIES }}
+        run: printf '%s' "$F95_COOKIES" > cookies.json
       - name: Run scraper
         run: node update-db.js --offset 4500 --limit 1500
       - name: Upload patch
