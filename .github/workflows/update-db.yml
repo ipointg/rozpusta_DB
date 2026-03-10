@@ -135,7 +135,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch origin main
-          git checkout origin/main -- local-game-db.json
+          git reset --hard origin/main
           node merge-patches.js
           git add local-game-db.json
           git diff --cached --quiet && echo "No changes" || git commit -m "auto: weekly DB status update [skip ci]"
