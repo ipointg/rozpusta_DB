@@ -135,7 +135,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/ipointg/rozpusta_DB.git
+          git pull --rebase origin main
           git add local-game-db.json
           git diff --cached --quiet && echo "No changes" || git commit -m "auto: weekly DB status update [skip ci]"
-          git pull --rebase https://x-access-token:${GITHUB_TOKEN}@github.com/ipointg/rozpusta_DB.git main
-          git push https://x-access-token:${GITHUB_TOKEN}@github.com/ipointg/rozpusta_DB.git HEAD:main
+          git push origin main
