@@ -4,6 +4,7 @@ const path = require('path');
 
 const DB_PATH = path.join(__dirname, 'local-game-db.json');
 const COOKIES_PATH = path.join(__dirname, 'cookies.json');
+const DELETED_PATH = path.join(__dirname, 'deleted-games.json');
 const MAX_GAMES_PER_RUN = 150;
 const DELAY_MS = 8000;
 
@@ -11,9 +12,30 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function normalizeF95Url(url) {
-  if (!url) return '';
-  return url.replace(/\/+$/, '').toLowerCase().trim();
+function isManualEntry(url) {
+  return url && url.startsWith('manual://');
+}
+
+function loadDeletedGames() {
+  if (!fs.existsSync(DELETED_PATH)) return [];
+  try { return JSON.parse(fs.readFileSync(DELETED_PATH, 'utf-8')); } catch { return []; }
+}
+
+function saveDeletedGame(game) {
+  const deleted = loadDeletedGames();
+  const alreadyTracked = deleted.some(d => d.f95Url === game.f95Url);
+  if (alreadyTracked) return;
+  deleted.push({
+    title: game.title,
+    f95Url: game.f95Url,
+    version: game.version || null,
+    releaseDate: game.releaseDate || null,
+    bannerUrl: game.bannerUrl || null,
+    detectedDeletedAt: new Date().toISOString(),
+  });
+  deleted.sort((a, b) => a.title.localeCompare(b.title));
+  fs.writeFileSync(DELETED_PATH, JSON.stringify(deleted, null, 2));
+  console.log(`  📋 Logged to deleted-games.json`);
 }
 
 async function scrapeGame(page, f95Url) {
@@ -21,10 +43,21 @@ async function scrapeGame(page, f95Url) {
 
   if (page.url().includes('/login')) throw new Error('NOT_LOGGED_IN');
 
-  const pageTitle = await page.title();
-  if (pageTitle.toLowerCase().includes('oops') || pageTitle.toLowerCase().includes('error')) {
-    return null;
-  }
+  // Detect deleted/unavailable thread
+  const isDeleted = await page.evaluate(() => {
+    const title = document.title.toLowerCase();
+    if (title.includes('oops') || title.includes('error') || title.includes('page not found')) return true;
+    // F95Zone shows this on deleted threads
+    if (document.querySelector('.error-page, .p-body-pageContent .blockMessage')) {
+      const msg = document.body.innerText.toLowerCase();
+      if (msg.includes('requested thread') || msg.includes('no longer available') || msg.includes('not found')) return true;
+    }
+    // If h1 title element is missing, the thread doesn't exist
+    if (!document.querySelector('h1.p-title-value')) return true;
+    return false;
+  });
+
+  if (isDeleted) return null;
 
   await delay(5000);
 
@@ -59,8 +92,10 @@ async function main() {
   console.log(`Total games in DB: ${games.length}`);
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Skip manual:// entries — they are not on F95Zone
   const toUpdate = games
-    .filter(g => g.f95Url && (!g.metaUpdatedAt || g.metaUpdatedAt < sevenDaysAgo))
+    .filter(g => g.f95Url && !isManualEntry(g.f95Url) && (!g.metaUpdatedAt || g.metaUpdatedAt < sevenDaysAgo))
     .sort((a, b) => (a.metaUpdatedAt || '') < (b.metaUpdatedAt || '') ? -1 : 1)
     .slice(0, MAX_GAMES_PER_RUN);
 
@@ -82,17 +117,21 @@ async function main() {
   await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36');
 
   let updatedCount = 0;
-  const gameMap = Object.fromEntries(games.map((g, i) => [normalizeF95Url(g.f95Url), i]));
+  let deletedCount = 0;
+  const gameMap = Object.fromEntries(games.map((g, i) => [g.f95Url, i]));
 
   for (const game of toUpdate) {
     console.log(`\nChecking: ${game.title}`);
     try {
       const result = await scrapeGame(page, game.f95Url);
-      const idx = gameMap[normalizeF95Url(game.f95Url)];
+      const idx = gameMap[game.f95Url];
 
-      if (!result) {
-        console.log('  ⚠️ Thread deleted or unavailable — marking as checked');
+      if (result === null) {
+        console.log(`  ⚠️ Thread deleted or unavailable`);
+        saveDeletedGame(game);
+        // Keep in DB but mark as checked so we don't re-check every run
         games[idx].metaUpdatedAt = new Date().toISOString();
+        deletedCount++;
         continue;
       }
 
@@ -128,7 +167,7 @@ async function main() {
 
   const output = Array.isArray(db) ? games : { ...db, games };
   fs.writeFileSync(DB_PATH, JSON.stringify(output, null, 2));
-  console.log(`\n✅ Done. Updated ${updatedCount} games, checked ${toUpdate.length} total.`);
+  console.log(`\n✅ Done. Updated ${updatedCount} games, ${deletedCount} deleted, checked ${toUpdate.length} total.`);
 }
 
 main().catch(e => {
