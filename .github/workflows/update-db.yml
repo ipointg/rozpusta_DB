@@ -21,11 +21,11 @@ jobs:
         env:
           F95ZONE_COOKIES: ${{ secrets.F95ZONE_COOKIES }}
         run: |
-          if [ -z "$F95_COOKIES" ]; then
-            echo "ERROR: F95_COOKIES is empty or not set"
+          if [ -z "$F95ZONE_COOKIES" ]; then
+            echo "ERROR: F95ZONE_COOKIES is empty or not set"
             exit 1
           else
-            echo "F95_COOKIES is set, length=${#F95_COOKIES}"
+            echo "F95ZONE_COOKIES is set, length=${#F95ZONE_COOKIES}"
           fi
       - name: Run scraper
         env:
