@@ -4,39 +4,17 @@ const path = require('path');
 
 const DB_PATH = path.join(__dirname, 'local-game-db.json');
 const COOKIES_PATH = path.join(__dirname, 'cookies.json');
-const DELETED_PATH = path.join(__dirname, 'deleted-games.json');
-const MAX_GAMES_PER_RUN = 150;
-const DELAY_MS = 8000;
+const DELAY_MS = 4000;
 
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+// CLI args: --offset N --limit N
+const args = process.argv.slice(2);
+const getArg = (name) => { const i = args.indexOf(name); return i !== -1 ? parseInt(args[i + 1]) : null; };
+const OFFSET = getArg('--offset') ?? 0;
+const LIMIT  = getArg('--limit')  ?? 1500;
+const PATCH_PATH = path.join(__dirname, `db-patch-${OFFSET}.json`);
 
-function isManualEntry(url) {
-  return url && url.startsWith('manual://');
-}
-
-function loadDeletedGames() {
-  if (!fs.existsSync(DELETED_PATH)) return [];
-  try { return JSON.parse(fs.readFileSync(DELETED_PATH, 'utf-8')); } catch { return []; }
-}
-
-function saveDeletedGame(game) {
-  const deleted = loadDeletedGames();
-  if (deleted.some(d => d.f95Url === game.f95Url)) return;
-  deleted.push({
-    title: game.title,
-    f95Url: game.f95Url,
-    version: game.version || null,
-    releaseDate: game.releaseDate || null,
-    bannerUrl: game.bannerUrl || null,
-    status: game.status || null,
-    detectedDeletedAt: new Date().toISOString(),
-  });
-  deleted.sort((a, b) => a.title.localeCompare(b.title));
-  fs.writeFileSync(DELETED_PATH, JSON.stringify(deleted, null, 2));
-  console.log(`  📋 Logged to deleted-games.json`);
-}
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+function isManualEntry(url) { return url && url.startsWith('manual://'); }
 
 function parseStatus(prefixLabel, pageTitle) {
   const t = ((prefixLabel || '') + ' ' + (pageTitle || '')).toLowerCase();
@@ -48,7 +26,6 @@ function parseStatus(prefixLabel, pageTitle) {
 
 async function scrapeGame(page, f95Url) {
   await page.goto(f95Url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-
   if (page.url().includes('/login')) throw new Error('NOT_LOGGED_IN');
 
   const isDeleted = await page.evaluate(() => {
@@ -59,10 +36,9 @@ async function scrapeGame(page, f95Url) {
     if (msg.includes('requested thread') && msg.includes('no longer available')) return true;
     return false;
   });
-
   if (isDeleted) return null;
 
-  await delay(5000);
+  await delay(2000);
 
   return await page.evaluate(() => {
     let version = null;
@@ -94,7 +70,6 @@ async function scrapeGame(page, f95Url) {
       }
       return null;
     }
-    // "Thread Updated" = latest version date (primary); "Release Date" = original (fallback)
     const threadUpdated = extractDateByLabel('Thread Updated');
     const releaseDate0 = extractDateByLabel('Release Date');
     let releaseDate = null;
@@ -104,8 +79,6 @@ async function scrapeGame(page, f95Url) {
       releaseDate = threadUpdated || releaseDate0;
     }
 
-    // Thread prefix label: Completed / Abandoned / On Hold / (none = active)
-    // Fallback: page title contains brackets e.g. [Completed]
     const prefixLabel = document.querySelector('h1.p-title-value .label, .p-title .label')
       ?.textContent?.trim() || '';
     const pageTitle = document.title || '';
@@ -119,43 +92,37 @@ async function main() {
   const db = JSON.parse(raw);
   const games = Array.isArray(db) ? db : db.games || [];
 
-  console.log(`Total games in DB: ${games.length}`);
-
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const toUpdate = games
+  // Filter first, then slice by offset/limit
+  const candidates = games
     .filter(g => {
       if (!g.f95Url || isManualEntry(g.f95Url)) return false;
-      // Skip completed and abandoned — these only get re-checked if a user
-      // manually syncs via the app and F95Zone shows a newer Thread Updated date,
-      // which changes the status back to active and triggers a PR update.
       if (g.status === 'completed') return false;
       if (g.status === 'abandoned') return false;
       return !g.metaUpdatedAt || g.metaUpdatedAt < sevenDaysAgo;
     })
-    .sort((a, b) => (a.metaUpdatedAt || '') < (b.metaUpdatedAt || '') ? -1 : 1)
-    .slice(0, MAX_GAMES_PER_RUN);
+    .sort((a, b) => (a.metaUpdatedAt || '') < (b.metaUpdatedAt || '') ? -1 : 1);
 
-  console.log(`Games to update this run: ${toUpdate.length}`);
+  const toUpdate = candidates.slice(OFFSET, OFFSET + LIMIT);
+
+  console.log(`Total eligible: ${candidates.length} | Chunk: offset=${OFFSET} limit=${LIMIT} → ${toUpdate.length} games`);
   if (toUpdate.length === 0) {
-    console.log('All games are fresh. Nothing to do.');
+    console.log('Nothing to do for this chunk.');
     return;
   }
 
   const cookies = JSON.parse(fs.readFileSync(COOKIES_PATH, 'utf-8'));
-
   const browser = await puppeteer.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   });
-
   const page = await browser.newPage();
   await page.setCookie(...cookies);
   await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36');
 
-  let updatedCount = 0;
-  let deletedCount = 0;
   const gameMap = Object.fromEntries(games.map((g, i) => [g.f95Url, i]));
+  const patches = []; // only changed/checked entries
 
   for (const game of toUpdate) {
     console.log(`\nChecking: ${game.title}`);
@@ -165,51 +132,34 @@ async function main() {
 
       if (result === null) {
         console.log(`  ⚠️ Thread deleted or unavailable`);
-        saveDeletedGame(game);
-        games[idx].metaUpdatedAt = new Date().toISOString();
-        deletedCount++;
+        patches.push({ f95Url: game.f95Url, deleted: true, metaUpdatedAt: new Date().toISOString() });
         continue;
       }
 
-      let changed = false;
-
-      if (result.version && result.version !== games[idx].version) {
-        console.log(`  Version: ${games[idx].version} → ${result.version}`);
-        games[idx].version = result.version;
-        changed = true;
-      }
-      if (result.releaseDate && result.releaseDate !== games[idx].releaseDate) {
-        console.log(`  Release date: ${games[idx].releaseDate} → ${result.releaseDate}`);
-        games[idx].releaseDate = result.releaseDate;
-        changed = true;
-      }
-
-      // Status from F95Zone prefix is authoritative
       let newStatus = parseStatus(result.prefixLabel, result.pageTitle);
-
-      // If F95Zone shows no prefix (active) but release date is > 4 months old — auto-abandon
-      if (newStatus === 'active') {
-        const releaseDate = result.releaseDate || games[idx].releaseDate;
-        if (releaseDate) {
-          const daysSinceRelease = (Date.now() - new Date(releaseDate).getTime()) / (1000 * 60 * 60 * 24);
-          if (daysSinceRelease > 120) newStatus = 'abandoned';
-        }
+      if (newStatus === 'active' && (result.releaseDate || game.releaseDate)) {
+        const rd = result.releaseDate || game.releaseDate;
+        const days = (Date.now() - new Date(rd).getTime()) / (1000 * 60 * 60 * 24);
+        if (days > 120) newStatus = 'abandoned';
       }
 
-      if (newStatus !== (games[idx].status || 'active')) {
-        console.log(`  Status: ${games[idx].status || 'active'} → ${newStatus}`);
-        games[idx].status = newStatus;
-        changed = true;
-      }
+      patches.push({
+        f95Url: game.f95Url,
+        version: result.version || game.version,
+        releaseDate: result.releaseDate || game.releaseDate,
+        status: newStatus,
+        metaUpdatedAt: new Date().toISOString(),
+      });
 
-      games[idx].metaUpdatedAt = new Date().toISOString();
-      if (changed) updatedCount++;
-      else console.log('  No changes');
+      const changed = (result.version && result.version !== game.version) ||
+        (result.releaseDate && result.releaseDate !== game.releaseDate) ||
+        newStatus !== (game.status || 'active');
+      console.log(`  status=${newStatus} version=${result.version || '?'} date=${result.releaseDate || '?'}${changed ? ' ✏️' : ''}`);
 
       await delay(DELAY_MS);
     } catch (e) {
       if (e.message === 'NOT_LOGGED_IN') {
-        console.error('❌ Not logged in to F95Zone — aborting');
+        console.error('❌ Not logged in — aborting');
         await browser.close();
         process.exit(1);
       }
@@ -220,12 +170,8 @@ async function main() {
 
   await browser.close();
 
-  const output = Array.isArray(db) ? games : { ...db, games };
-  fs.writeFileSync(DB_PATH, JSON.stringify(output, null, 2));
-  console.log(`\n✅ Done. Updated ${updatedCount} games, ${deletedCount} deleted threads, checked ${toUpdate.length} total.`);
+  fs.writeFileSync(PATCH_PATH, JSON.stringify(patches, null, 2));
+  console.log(`\n✅ Chunk done. Wrote ${patches.length} entries to ${path.basename(PATCH_PATH)}`);
 }
 
-main().catch(e => {
-  console.error('Fatal error:', e);
-  process.exit(1);
-});
+main().catch(e => { console.error('Fatal:', e); process.exit(1); });

@@ -1,35 +1,124 @@
-name: DB Metadata Update
+name: Update DB
 
 on:
   schedule:
-    - cron: '0 3 * * 1,4'
-  workflow_dispatch:
+    - cron: '0 3 * * 0'   # Every Sunday at 03:00 UTC
+  workflow_dispatch:       # Manual trigger
 
 jobs:
-  update-db:
+  scrape-0:
+    name: Scrape offset 0
     runs-on: ubuntu-latest
-
+    timeout-minutes: 180
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
-
-      - name: Install Puppeteer
+      - name: Install puppeteer
         run: npm install puppeteer
+      - name: Write cookies
+        run: echo '${{ secrets.F95_COOKIES }}' > cookies.json
+      - name: Run scraper
+        run: node update-db.js --offset 0 --limit 1500
+      - name: Upload patch
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: patch-0
+          path: db-patch-0.json
+          if-no-files-found: warn
 
-      - name: Write F95Zone cookies
-        run: echo '${{ secrets.F95ZONE_COOKIES }}' > cookies.json
+  scrape-1500:
+    name: Scrape offset 1500
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install puppeteer
+        run: npm install puppeteer
+      - name: Write cookies
+        run: echo '${{ secrets.F95_COOKIES }}' > cookies.json
+      - name: Run scraper
+        run: node update-db.js --offset 1500 --limit 1500
+      - name: Upload patch
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: patch-1500
+          path: db-patch-1500.json
+          if-no-files-found: warn
 
-      - name: Run update script
-        run: node update-db.js
+  scrape-3000:
+    name: Scrape offset 3000
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install puppeteer
+        run: npm install puppeteer
+      - name: Write cookies
+        run: echo '${{ secrets.F95_COOKIES }}' > cookies.json
+      - name: Run scraper
+        run: node update-db.js --offset 3000 --limit 1500
+      - name: Upload patch
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: patch-3000
+          path: db-patch-3000.json
+          if-no-files-found: warn
 
-      - name: Commit changes
+  scrape-4500:
+    name: Scrape offset 4500
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install puppeteer
+        run: npm install puppeteer
+      - name: Write cookies
+        run: echo '${{ secrets.F95_COOKIES }}' > cookies.json
+      - name: Run scraper
+        run: node update-db.js --offset 4500 --limit 1500
+      - name: Upload patch
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: patch-4500
+          path: db-patch-4500.json
+          if-no-files-found: warn
+
+  merge:
+    name: Merge patches
+    needs: [scrape-0, scrape-1500, scrape-3000, scrape-4500]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Download all patch artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: .
+      - name: Apply patches
+        run: node merge-patches.js
+      - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add local-game-db.json
-          git diff --staged --quiet && echo "No changes to commit" || (git commit -m "auto: update game metadata $(date +%Y-%m-%d)" && git push)
+          git diff --cached --quiet && echo "No changes" || git commit -m "auto: weekly DB status update [skip ci]"
+          git diff HEAD~1 HEAD --quiet || git push
