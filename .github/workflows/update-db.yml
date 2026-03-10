@@ -17,6 +17,16 @@ jobs:
           node-version: '20'
       - name: Install puppeteer
         run: npm install puppeteer
+      - name: Check secret
+        env:
+          F95_COOKIES: ${{ secrets.F95_COOKIES }}
+        run: |
+          if [ -z "$F95_COOKIES" ]; then
+            echo "ERROR: F95_COOKIES is empty or not set"
+            exit 1
+          else
+            echo "F95_COOKIES is set, length=${#F95_COOKIES}"
+          fi
       - name: Run scraper
         env:
           F95_COOKIES: ${{ secrets.F95_COOKIES }}
