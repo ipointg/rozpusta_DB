@@ -112,7 +112,15 @@ async function main() {
     return;
   }
 
-  const cookies = JSON.parse(fs.readFileSync(COOKIES_PATH, 'utf-8'));
+  let cookies;
+  if (process.env.F95_COOKIES) {
+    cookies = JSON.parse(process.env.F95_COOKIES);
+  } else if (fs.existsSync(COOKIES_PATH)) {
+    cookies = JSON.parse(fs.readFileSync(COOKIES_PATH, 'utf-8'));
+  } else {
+    console.error('No cookies found (set F95_COOKIES env var or cookies.json)');
+    process.exit(1);
+  }
   const browser = await puppeteer.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
