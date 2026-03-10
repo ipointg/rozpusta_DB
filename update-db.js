@@ -103,8 +103,8 @@ async function main() {
   const toUpdate = games
     .filter(g => {
       if (!g.f95Url || isManualEntry(g.f95Url)) return false;
-      // Skip finalized games — they won't change
-      if (g.status === 'completed' || g.status === 'abandoned') return false;
+      // Only skip completed — abandoned can be lifted by developer after months
+      if (g.status === 'completed') return false;
       return !g.metaUpdatedAt || g.metaUpdatedAt < sevenDaysAgo;
     })
     .sort((a, b) => (a.metaUpdatedAt || '') < (b.metaUpdatedAt || '') ? -1 : 1)
@@ -158,7 +158,18 @@ async function main() {
         changed = true;
       }
 
-      const newStatus = parseStatus(result.prefixLabel);
+      // Status from F95Zone prefix is authoritative
+      let newStatus = parseStatus(result.prefixLabel);
+
+      // If F95Zone shows no prefix (active) but release date is > 4 months old — auto-abandon
+      if (newStatus === 'active') {
+        const releaseDate = result.releaseDate || games[idx].releaseDate;
+        if (releaseDate) {
+          const daysSinceRelease = (Date.now() - new Date(releaseDate).getTime()) / (1000 * 60 * 60 * 24);
+          if (daysSinceRelease > 120) newStatus = 'abandoned';
+        }
+      }
+
       if (newStatus !== (games[idx].status || 'active')) {
         console.log(`  Status: ${games[idx].status || 'active'} → ${newStatus}`);
         games[idx].status = newStatus;
