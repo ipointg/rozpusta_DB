@@ -115,6 +115,8 @@ jobs:
     needs: [scrape-0, scrape-1500, scrape-3000, scrape-4500]
     if: always()
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
