@@ -113,8 +113,8 @@ async function main() {
   }
 
   let cookies;
-  if (process.env.F95_COOKIES) {
-    cookies = JSON.parse(process.env.F95_COOKIES);
+  if (process.env.F95ZONE_COOKIES) {
+    cookies = JSON.parse(process.env.F95ZONE_COOKIES);
   } else if (fs.existsSync(COOKIES_PATH)) {
     cookies = JSON.parse(fs.readFileSync(COOKIES_PATH, 'utf-8'));
   } else {

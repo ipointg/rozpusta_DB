@@ -19,7 +19,7 @@ jobs:
         run: npm install puppeteer
       - name: Check secret
         env:
-          F95_COOKIES: ${{ secrets.F95_COOKIES }}
+          F95ZONE_COOKIES: ${{ secrets.F95ZONE_COOKIES }}
         run: |
           if [ -z "$F95_COOKIES" ]; then
             echo "ERROR: F95_COOKIES is empty or not set"
@@ -29,7 +29,7 @@ jobs:
           fi
       - name: Run scraper
         env:
-          F95_COOKIES: ${{ secrets.F95_COOKIES }}
+          F95ZONE_COOKIES: ${{ secrets.F95ZONE_COOKIES }}
         run: node update-db.js --offset 0 --limit 1500
       - name: Upload patch
         uses: actions/upload-artifact@v4
@@ -52,7 +52,7 @@ jobs:
         run: npm install puppeteer
       - name: Run scraper
         env:
-          F95_COOKIES: ${{ secrets.F95_COOKIES }}
+          F95ZONE_COOKIES: ${{ secrets.F95ZONE_COOKIES }}
         run: node update-db.js --offset 1500 --limit 1500
       - name: Upload patch
         uses: actions/upload-artifact@v4
@@ -75,7 +75,7 @@ jobs:
         run: npm install puppeteer
       - name: Run scraper
         env:
-          F95_COOKIES: ${{ secrets.F95_COOKIES }}
+          F95ZONE_COOKIES: ${{ secrets.F95ZONE_COOKIES }}
         run: node update-db.js --offset 3000 --limit 1500
       - name: Upload patch
         uses: actions/upload-artifact@v4
@@ -98,7 +98,7 @@ jobs:
         run: npm install puppeteer
       - name: Run scraper
         env:
-          F95_COOKIES: ${{ secrets.F95_COOKIES }}
+          F95ZONE_COOKIES: ${{ secrets.F95ZONE_COOKIES }}
         run: node update-db.js --offset 4500 --limit 1500
       - name: Upload patch
         uses: actions/upload-artifact@v4
