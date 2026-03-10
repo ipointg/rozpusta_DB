@@ -38,11 +38,11 @@ function saveDeletedGame(game) {
   console.log(`  📋 Logged to deleted-games.json`);
 }
 
-function parseStatus(prefixText) {
-  const t = (prefixText || '').toLowerCase();
+function parseStatus(prefixLabel, pageTitle) {
+  const t = ((prefixLabel || '') + ' ' + (pageTitle || '')).toLowerCase();
   if (t.includes('completed')) return 'completed';
   if (t.includes('abandoned')) return 'abandoned';
-  if (t.includes('hold')) return 'on_hold';
+  if (t.includes('on hold') || t.includes('on-hold')) return 'on_hold';
   return 'active';
 }
 
@@ -105,10 +105,12 @@ async function scrapeGame(page, f95Url) {
     }
 
     // Thread prefix label: Completed / Abandoned / On Hold / (none = active)
+    // Fallback: page title contains brackets e.g. [Completed]
     const prefixLabel = document.querySelector('h1.p-title-value .label, .p-title .label')
       ?.textContent?.trim() || '';
+    const pageTitle = document.title || '';
 
-    return { version, releaseDate, prefixLabel };
+    return { version, releaseDate, prefixLabel, pageTitle };
   });
 }
 
@@ -124,8 +126,11 @@ async function main() {
   const toUpdate = games
     .filter(g => {
       if (!g.f95Url || isManualEntry(g.f95Url)) return false;
-      // Only skip completed — abandoned can be lifted by developer after months
+      // Skip completed and abandoned — these only get re-checked if a user
+      // manually syncs via the app and F95Zone shows a newer Thread Updated date,
+      // which changes the status back to active and triggers a PR update.
       if (g.status === 'completed') return false;
+      if (g.status === 'abandoned') return false;
       return !g.metaUpdatedAt || g.metaUpdatedAt < sevenDaysAgo;
     })
     .sort((a, b) => (a.metaUpdatedAt || '') < (b.metaUpdatedAt || '') ? -1 : 1)
@@ -180,7 +185,7 @@ async function main() {
       }
 
       // Status from F95Zone prefix is authoritative
-      let newStatus = parseStatus(result.prefixLabel);
+      let newStatus = parseStatus(result.prefixLabel, result.pageTitle);
 
       // If F95Zone shows no prefix (active) but release date is > 4 months old — auto-abandon
       if (newStatus === 'active') {
