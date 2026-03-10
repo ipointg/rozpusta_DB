@@ -20,7 +20,7 @@ jobs:
       - name: Write cookies
         env:
           F95_COOKIES: ${{ secrets.F95_COOKIES }}
-        run: printf '%s' "$F95_COOKIES" > cookies.json
+        run: node -e "require('fs').writeFileSync('cookies.json', process.env.F95_COOKIES)"
       - name: Run scraper
         run: node update-db.js --offset 0 --limit 1500
       - name: Upload patch
@@ -45,7 +45,7 @@ jobs:
       - name: Write cookies
         env:
           F95_COOKIES: ${{ secrets.F95_COOKIES }}
-        run: printf '%s' "$F95_COOKIES" > cookies.json
+        run: node -e "require('fs').writeFileSync('cookies.json', process.env.F95_COOKIES)"
       - name: Run scraper
         run: node update-db.js --offset 1500 --limit 1500
       - name: Upload patch
@@ -70,7 +70,7 @@ jobs:
       - name: Write cookies
         env:
           F95_COOKIES: ${{ secrets.F95_COOKIES }}
-        run: printf '%s' "$F95_COOKIES" > cookies.json
+        run: node -e "require('fs').writeFileSync('cookies.json', process.env.F95_COOKIES)"
       - name: Run scraper
         run: node update-db.js --offset 3000 --limit 1500
       - name: Upload patch
@@ -95,7 +95,7 @@ jobs:
       - name: Write cookies
         env:
           F95_COOKIES: ${{ secrets.F95_COOKIES }}
-        run: printf '%s' "$F95_COOKIES" > cookies.json
+        run: node -e "require('fs').writeFileSync('cookies.json', process.env.F95_COOKIES)"
       - name: Run scraper
         run: node update-db.js --offset 4500 --limit 1500
       - name: Upload patch
