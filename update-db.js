@@ -79,9 +79,30 @@ async function scrapeGame(page, f95Url) {
       }
     }
 
+    function extractDateByLabel(label) {
+      const regex = new RegExp(label.replace(/\s/g, '\\s*') + '\\s*[:\\-]?\\s*(\\d{4}-\\d{2}-\\d{2})', 'i');
+      const m = document.body.innerText.match(regex);
+      if (m) return m[1];
+      const bolds = Array.from(document.querySelectorAll('b'));
+      for (const b of bolds) {
+        if (b.textContent?.trim().toLowerCase() === label.toLowerCase()) {
+          let node = b.nextSibling;
+          while (node && node.nodeType !== Node.TEXT_NODE) node = node.nextSibling;
+          const raw = node?.textContent?.replace(/[:\s]+/, '').trim();
+          if (raw && /^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+        }
+      }
+      return null;
+    }
+    // "Thread Updated" = latest version date (primary); "Release Date" = original (fallback)
+    const threadUpdated = extractDateByLabel('Thread Updated');
+    const releaseDate0 = extractDateByLabel('Release Date');
     let releaseDate = null;
-    const match = document.body.innerText.match(/Release\s*Date\s*[:\-]?\s*(\d{4}-\d{2}-\d{2})/i);
-    if (match) releaseDate = match[1];
+    if (threadUpdated && releaseDate0) {
+      releaseDate = threadUpdated >= releaseDate0 ? threadUpdated : releaseDate0;
+    } else {
+      releaseDate = threadUpdated || releaseDate0;
+    }
 
     // Thread prefix label: Completed / Abandoned / On Hold / (none = active)
     const prefixLabel = document.querySelector('h1.p-title-value .label, .p-title .label')
