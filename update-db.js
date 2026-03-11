@@ -92,7 +92,7 @@ async function main() {
   const db = JSON.parse(raw);
   const games = Array.isArray(db) ? db : db.games || [];
 
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const sevenDaysAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
 
   // Filter first, then slice by offset/limit
   const candidates = games
