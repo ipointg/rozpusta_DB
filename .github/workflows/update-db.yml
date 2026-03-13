@@ -2,16 +2,14 @@ name: Update DB
 
 on:
   schedule:
-    - cron: '0 21 * * 1'  # Monday 21:00 UTC
-    - cron: '0 21 * * 3'  # Wednesday 21:00 UTC
-    - cron: '0 21 * * 5'  # Friday 21:00 UTC
+    - cron: '0 21 * * *'  # Daily 21:00 UTC
   workflow_dispatch:       # Manual trigger
 
 jobs:
   scrape-0:
     name: Scrape offset 0
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -32,7 +30,7 @@ jobs:
       - name: Run scraper
         env:
           F95ZONE_COOKIES: ${{ secrets.F95ZONE_COOKIES }}
-        run: node update-db.js --offset 0 --limit 400
+        run: node update-db.js --offset 0 --limit 1500
       - name: Upload patch
         uses: actions/upload-artifact@v4
         if: always()
@@ -41,10 +39,10 @@ jobs:
           path: db-patch-0.json
           if-no-files-found: warn
 
-  scrape-400:
-    name: Scrape offset 400
+  scrape-1500:
+    name: Scrape offset 1500
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -55,19 +53,19 @@ jobs:
       - name: Run scraper
         env:
           F95ZONE_COOKIES: ${{ secrets.F95ZONE_COOKIES }}
-        run: node update-db.js --offset 400 --limit 400
+        run: node update-db.js --offset 1500 --limit 1500
       - name: Upload patch
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: patch-400
-          path: db-patch-400.json
+          name: patch-1500
+          path: db-patch-1500.json
           if-no-files-found: warn
 
-  scrape-800:
-    name: Scrape offset 800
+  scrape-3000:
+    name: Scrape offset 3000
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -78,19 +76,19 @@ jobs:
       - name: Run scraper
         env:
           F95ZONE_COOKIES: ${{ secrets.F95ZONE_COOKIES }}
-        run: node update-db.js --offset 800 --limit 400
+        run: node update-db.js --offset 3000 --limit 1500
       - name: Upload patch
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: patch-800
-          path: db-patch-800.json
+          name: patch-3000
+          path: db-patch-3000.json
           if-no-files-found: warn
 
-  scrape-1200:
-    name: Scrape offset 1200
+  scrape-4500:
+    name: Scrape offset 4500
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -101,18 +99,18 @@ jobs:
       - name: Run scraper
         env:
           F95ZONE_COOKIES: ${{ secrets.F95ZONE_COOKIES }}
-        run: node update-db.js --offset 1200 --limit 400
+        run: node update-db.js --offset 4500 --limit 1500
       - name: Upload patch
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: patch-1200
-          path: db-patch-1200.json
+          name: patch-4500
+          path: db-patch-4500.json
           if-no-files-found: warn
 
   merge:
     name: Merge patches
-    needs: [scrape-0, scrape-400, scrape-800, scrape-1200]
+    needs: [scrape-0, scrape-1500, scrape-3000, scrape-4500]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -138,5 +136,5 @@ jobs:
           git reset --hard origin/main
           node merge-patches.js
           git add local-game-db.json
-          git diff --cached --quiet && echo "No changes" || git commit -m "auto: DB status update [skip ci]"
+          git diff --cached --quiet && echo "No changes" || git commit -m "auto: daily DB status update [skip ci]"
           git push origin main
