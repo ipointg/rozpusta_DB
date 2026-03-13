@@ -92,7 +92,7 @@ async function main() {
   const db = JSON.parse(raw);
   const games = Array.isArray(db) ? db : db.games || [];
 
-  const oneDayAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+  const sevenDaysAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
 
   // Filter first, then slice by offset/limit
   const candidates = games
@@ -100,7 +100,7 @@ async function main() {
       if (!g.f95Url || isManualEntry(g.f95Url)) return false;
       if (g.status === 'completed') return false;
       if (g.status === 'abandoned') return false;
-      return !g.metaUpdatedAt || g.metaUpdatedAt < oneDayAgo;
+      return !g.metaUpdatedAt || g.metaUpdatedAt < sevenDaysAgo;
     })
     .sort((a, b) => (a.metaUpdatedAt || '') < (b.metaUpdatedAt || '') ? -1 : 1);
 
