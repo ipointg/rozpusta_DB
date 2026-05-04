@@ -27385,7 +27385,8 @@
       ],
       "deleted": true,
       "metaUpdatedAt": "2026-05-03T22:15:03.676Z",
-      "lastVersionChecked": "v1.0"
+      "lastVersionChecked": "v1.0",
+      "status": "active"
     },
     {
       "title": "Class Of 2014",
@@ -60360,7 +60361,8 @@
       ],
       "deleted": true,
       "metaUpdatedAt": "2026-05-03T22:15:46.749Z",
-      "lastVersionChecked": "v1.0"
+      "lastVersionChecked": "v1.0",
+      "status": "active"
     },
     {
       "title": "Girls Und Panzer Der Panzussy",
@@ -137157,7 +137159,8 @@
       "releaseDate": "2026-04-30",
       "knownTitles": [
         "Showcase Bianca And Aaron Game Night",
-        "Showcase_BiancaAndAaron_GameNight-0.3-Patreon-pc"
+        "Showcase_BiancaAndAaron_GameNight-0.3-Patreon-pc",
+        "Showcase_BiancaAndAaron_GameNight-0.4-Patreon-pc"
       ],
       "status": "active",
       "metaUpdatedAt": "2026-05-03T22:13:36.865Z",
@@ -144490,7 +144493,8 @@
       ],
       "deleted": true,
       "metaUpdatedAt": "2026-05-03T21:54:29.939Z",
-      "lastVersionChecked": "Version not found"
+      "lastVersionChecked": "Version not found",
+      "status": "active"
     },
     {
       "title": "Step By Step",
